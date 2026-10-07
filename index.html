@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#107c41">
+  <title>Excel AI Assistant</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{
+      --bg:#f5f7fb;--panel:#fff;--soft:#f7f9fc;--text:#172033;--muted:#6b7280;
+      --line:#dfe5ef;--green:#107c41;--green2:#21a366;--greenbg:#ebf8f0;
+      --blue:#2563eb;--bluebg:#eef4ff;--red:#c62828;--amber:#a85d00;
+      --shadow:0 12px 34px rgba(35,50,80,.08);--radius:18px
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Pretendard,"Noto Sans KR","Apple SD Gothic Neo",Arial,sans-serif}
+    button,input,textarea,select{font:inherit}
+    button{touch-action:manipulation}
+    .app{max-width:1440px;margin:auto;padding:20px}
+    .header{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:16px}
+    .brand{display:flex;align-items:center;gap:12px;min-width:0}
+    .logo{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--green),var(--green2));color:#fff;font-size:28px;font-weight:900}
+    h1{margin:0;font-size:24px}.sub{margin-top:4px;color:var(--muted);font-size:13px}
+    .badge{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:4px 8px;border-radius:999px;background:var(--greenbg);color:#0a6637;font-size:11px;vertical-align:middle}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{border:1px solid var(--line);background:#fff;min-height:44px;padding:0 14px;border-radius:12px;font-weight:800;color:var(--text);cursor:pointer}
+    .btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+    .btn.blue{background:var(--blue);border-color:var(--blue);color:#fff}
+    .btn:disabled{opacity:.42;cursor:not-allowed}
+    .layout{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(360px,.9fr);gap:16px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .title{font-weight:900}.tiny{font-size:11px;color:var(--muted)}
+    .body{padding:15px}
+    .upload{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:16px;border:1.5px dashed #b9c5d5;border-radius:14px;background:#fbfdff}
+    .upload strong{display:block;margin-bottom:4px}.upload small{color:var(--muted)}
+    #fileInput{display:none}
+    .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+    .metric{padding:10px;border-radius:12px;background:var(--soft);border:1px solid var(--line);min-width:0}
+    .metric span{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}.metric b{font-size:15px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    select,input,textarea{border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--text);outline:none}
+    select,input{height:43px;padding:0 10px}textarea{width:100%;min-height:104px;padding:12px;line-height:1.55;resize:vertical}
+    select:focus,input:focus,textarea:focus{border-color:#66a685;box-shadow:0 0 0 3px rgba(16,124,65,.09)}
+    .sheetbox{border:1px solid var(--line);border-radius:13px;overflow:auto;max-height:560px;background:#fff;-webkit-overflow-scrolling:touch}
+    table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12.5px}
+    th,td{height:34px;padding:6px 9px;min-width:88px;border-right:1px solid #e9edf3;border-bottom:1px solid #e9edf3;white-space:nowrap}
+    th{position:sticky;top:0;background:#f1f5f9;z-index:3;font-weight:900}
+    .rownum{min-width:42px;width:42px;text-align:center;position:sticky;left:0;background:#f8fafc;color:#778196;z-index:2}
+    th.rownum{z-index:4}
+    .empty{padding:70px 20px;text-align:center;color:var(--muted)}
+    .status{min-height:21px;margin-top:8px;font-size:12px;color:var(--muted)}.status.ok{color:#08783d}.status.warn{color:var(--amber)}.status.err{color:var(--red)}
+    .privacy{background:var(--greenbg);color:#24583d;padding:10px 12px;border-radius:12px;font-size:11.5px;line-height:1.5}
+    .chat{display:flex;flex-direction:column;gap:10px}
+    .bubble{border-radius:14px;padding:12px 13px;font-size:13px;line-height:1.55}
+    .bubble.ai{background:#f5f7fa;border:1px solid var(--line)}
+    .bubble.plan{background:var(--bluebg);border:1px solid #cfe0ff}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip{border:1px solid #cddcff;background:#f6f9ff;color:#244a92;border-radius:999px;padding:7px 9px;font-size:11.5px;cursor:pointer}
+    .planbox{border:1px solid var(--line);border-radius:14px;overflow:hidden;display:none}
+    .planbox.show{display:block}
+    .planhead{padding:11px 12px;background:#f8fafc;border-bottom:1px solid var(--line);font-weight:900;font-size:13px}
+    .planbody{padding:11px 12px;font-size:12.5px;line-height:1.55}
+    .actionitem{padding:9px 0;border-bottom:1px solid #eef1f5}.actionitem:last-child{border-bottom:0}
+    .code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:#f2f4f7;border-radius:7px;padding:4px 6px;display:inline-block;max-width:100%;overflow-wrap:anywhere}
+    .planbuttons{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 12px 12px}
+    .history{margin:0;padding-left:18px;font-size:12px;color:#4b5563;line-height:1.65}
+    .divider{height:1px;background:var(--line);margin:3px 0}
+    .label{font-size:12px;font-weight:900}
+    .manual{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+    .span2{grid-column:1/-1}
+    .mobile-nav{display:none}
+    @media(max-width:920px){
+      .app{padding:12px 12px 84px}.layout{grid-template-columns:1fr}.actions{display:none}.metrics{grid-template-columns:1fr 1fr}
+      .brand h1{font-size:20px}.logo{width:44px;height:44px;font-size:24px}.badge{display:none}
+      .mobile-nav{display:grid;grid-template-columns:1fr 1fr;position:fixed;z-index:50;left:12px;right:12px;bottom:12px;padding:7px;border:1px solid var(--line);border-radius:17px;background:rgba(255,255,255,.96);box-shadow:0 12px 35px rgba(24,39,75,.18)}
+      .mobile-nav button{height:47px;border:0;border-radius:12px;background:transparent;font-weight:900;color:#6b7280}
+      .mobile-nav button.active{background:var(--green);color:white}
+      .mobile-panel.hidden{display:none}.sheetbox{max-height:460px}
+    }
+    @media(max-width:520px){
+      .app{padding-left:9px;padding-right:9px}.upload{grid-template-columns:1fr}.upload .btn{width:100%}.body,.head{padding-left:12px;padding-right:12px}
+      .manual{grid-template-columns:1fr}.span2{grid-column:auto}th,td{min-width:76px;padding:6px 7px}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <div class="brand">
+      <div class="logo">X</div>
+      <div>
+        <h1>Excel AI Assistant <span class="badge">AI PLAN MODE</span></h1>
+        <div class="sub">엑셀 구조를 AI가 읽고, 자연어 요청을 수식·편집 작업으로 변환합니다.</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="resetTop">새 파일</button>
+      <button class="btn primary" id="downloadTop" disabled>수정본 다운로드</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="card mobile-panel" id="excelPanel">
+      <div class="head">
+        <div><div class="title">Excel 미리보기</div><div class="tiny">AI에는 파일 전체가 아니라 구조·헤더·일부 샘플만 전달됩니다.</div></div>
+        <select id="sheetSelect" disabled><option>시트 선택</option></select>
+      </div>
+      <div class="body">
+        <div class="upload">
+          <div><strong id="uploadName">작업할 Excel 파일을 선택하세요</strong><small>.xlsx / .xls · 브라우저에서 파일 편집</small></div>
+          <div><input id="fileInput" type="file" accept=".xlsx,.xls"><button class="btn" id="chooseFile">파일 선택</button></div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>파일명</span><b id="mFile">-</b></div>
+          <div class="metric"><span>시트</span><b id="mSheets">-</b></div>
+          <div class="metric"><span>행 수</span><b id="mRows">-</b></div>
+          <div class="metric"><span>열 수</span><b id="mCols">-</b></div>
+        </div>
+        <div class="sheetbox">
+          <div class="empty" id="emptyState">Excel 파일을 업로드하면<br>데이터를 미리 볼 수 있습니다.</div>
+          <table id="preview" hidden></table>
+        </div>
+        <div class="status" id="excelStatus"></div>
+      </div>
+    </section>
+
+    <aside class="card mobile-panel" id="assistantPanel">
+      <div class="head"><div><div class="title">AI Assistant</div><div class="tiny">요청 → AI 작업계획 → 확인 → 적용</div></div></div>
+      <div class="body chat">
+        <div class="privacy">🔒 OpenAI API 키는 서버 환경변수에만 저장하도록 설계했습니다. 웹페이지 코드에는 API 키가 들어가지 않습니다.</div>
+        <div class="bubble ai">
+          열 주소를 몰라도 괜찮습니다. 헤더 이름을 이용해서 요청해보세요.<br><br>
+          <b>“목표금액과 실적금액을 비교해서 달성률 열을 만들어줘.”</b><br>
+          <b>“판매금액 합계를 마지막 행 아래에 넣어줘.”</b><br>
+          <b>“1~10행 사이마다 빈 행 하나씩 추가해줘.”</b>
+        </div>
+        <div class="chips">
+          <button class="chip" data-prompt="목표금액과 실적금액을 비교해서 오른쪽에 달성률 열을 만들어줘. 0으로 나누는 오류도 처리해줘.">달성률 만들기</button>
+          <button class="chip" data-prompt="판매금액 열의 합계를 데이터 마지막 행 바로 아래에 넣어줘.">판매금액 합계</button>
+          <button class="chip" data-prompt="1~10행 사이마다 빈 행 하나씩 추가해줘.">빈 행 추가</button>
+          <button class="chip" data-prompt="목표금액보다 실적금액이 크거나 같으면 달성, 아니면 미달로 표시하는 판정 열을 만들어줘.">달성/미달 판정</button>
+        </div>
+        <textarea id="prompt" placeholder="예: 목표금액과 실적금액을 비교해서 달성률 열 만들어줘"></textarea>
+        <button class="btn blue" id="askAI" disabled>AI에게 작업계획 요청</button>
+        <div class="status" id="aiStatus"></div>
+
+        <div class="planbox" id="planBox">
+          <div class="planhead">AI 작업 계획</div>
+          <div class="planbody" id="planBody"></div>
+          <div class="planbuttons">
+            <button class="btn" id="discardPlan">취소</button>
+            <button class="btn primary" id="applyPlan">계획 적용</button>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="label">빠른 수동 테스트</div>
+        <div class="manual">
+          <input id="manualCell" placeholder="셀 예: K2">
+          <input id="manualFormula" placeholder="수식 예: =H2/J2">
+          <button class="btn span2" id="manualApply" disabled>수식 직접 적용</button>
+        </div>
+
+        <div class="divider"></div>
+        <div class="label">작업 이력</div>
+        <ol class="history" id="history"><li>아직 작업이 없습니다.</li></ol>
+        <button class="btn primary" id="downloadMobile" disabled>수정본 다운로드</button>
+        <button class="btn" id="resetMobile">새 파일 열기</button>
+      </div>
+    </aside>
+  </main>
+</div>
+<nav class="mobile-nav">
+  <button class="active" data-panel="excel">Excel</button>
+  <button data-panel="assistant">Assistant</button>
+</nav>
+
+<script>
+(()=>{
+  "use strict";
+  let workbook=null,currentSheet=null,originalName="edited.xlsx",pendingPlan=null;
+  const historyItems=[];
+  const $=id=>document.getElementById(id);
+
+  function setEnabled(v){
+    ["downloadTop","downloadMobile","askAI","manualApply"].forEach(id=>$(id).disabled=!v);
+    $("sheetSelect").disabled=!v;
+  }
+  function status(id,msg,type=""){const e=$(id);e.className="status"+(type?" "+type:"");e.textContent=msg}
+  function addHistory(msg){
+    historyItems.unshift(msg);$("history").innerHTML="";
+    historyItems.slice(0,10).forEach(x=>{const li=document.createElement("li");li.textContent=x;$("history").appendChild(li)});
+  }
+  function rangeInfo(ws){
+    if(!ws||!ws["!ref"])return{rows:0,cols:0,endRow:0,endCol:0};
+    const r=XLSX.utils.decode_range(ws["!ref"]);return{rows:r.e.r-r.s.r+1,cols:r.e.c-r.s.c+1,endRow:r.e.r+1,endCol:r.e.c+1};
+  }
+  function updateRef(ws,address){
+    const cell=XLSX.utils.decode_cell(address);
+    if(!ws["!ref"]){ws["!ref"]=XLSX.utils.encode_range({s:cell,e:cell});return}
+    const r=XLSX.utils.decode_range(ws["!ref"]);
+    r.s.r=Math.min(r.s.r,cell.r);r.s.c=Math.min(r.s.c,cell.c);r.e.r=Math.max(r.e.r,cell.r);r.e.c=Math.max(r.e.c,cell.c);
+    ws["!ref"]=XLSX.utils.encode_range(r);
+  }
+  function render(){
+    if(!workbook||!currentSheet)return;
+    const ws=workbook.Sheets[currentSheet];
+    const info=rangeInfo(ws);
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});
+    const subset=rows.slice(0,60),maxCols=Math.min(Math.max(1,...subset.map(r=>r.length)),20);
+    const t=$("preview");t.innerHTML="";
+    const thead=document.createElement("thead"),hr=document.createElement("tr"),corner=document.createElement("th");
+    corner.className="rownum";corner.textContent="#";hr.appendChild(corner);
+    for(let c=0;c<maxCols;c++){const th=document.createElement("th");th.textContent=XLSX.utils.encode_col(c);hr.appendChild(th)}
+    thead.appendChild(hr);t.appendChild(thead);
+    const tbody=document.createElement("tbody");
+    subset.forEach((row,i)=>{
+      const tr=document.createElement("tr"),rn=document.createElement("td");rn.className="rownum";rn.textContent=i+1;tr.appendChild(rn);
+      for(let c=0;c<maxCols;c++){
+        const td=document.createElement("td"),addr=XLSX.utils.encode_cell({r:i,c});
+        const cell=ws[addr];
+        td.textContent=(cell&&cell.f)?("="+cell.f):(row[c]??"");tr.appendChild(td)
+      }
+      tbody.appendChild(tr)
+    });
+    t.appendChild(tbody);t.hidden=false;$("emptyState").hidden=true;
+    $("mRows").textContent=info.rows;$("mCols").textContent=info.cols;
+  }
+  function selectSheet(name){currentSheet=name;$("sheetSelect").value=name;render();status("excelStatus",`${name} 시트를 표시하고 있습니다.`,"ok")}
+  $("chooseFile").addEventListener("click",()=>$("fileInput").click());
+  $("fileInput").addEventListener("change",async e=>{
+    const f=e.target.files?.[0];if(!f)return;
+    try{
+      const buf=await f.arrayBuffer();workbook=XLSX.read(buf,{type:"array",cellFormula:true,cellStyles:true});
+      if(!workbook.SheetNames.length)throw new Error("시트가 없습니다.");
+      originalName=f.name;$("uploadName").textContent=f.name;$("mFile").textContent=f.name;$("mSheets").textContent=workbook.SheetNames.length;
+      const s=$("sheetSelect");s.innerHTML="";workbook.SheetNames.forEach(n=>{const o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o)});
+      pendingPlan=null;$("planBox").classList.remove("show");historyItems.length=0;$("history").innerHTML="<li>아직 작업이 없습니다.</li>";
+      setEnabled(true);selectSheet(workbook.SheetNames[0]);if(innerWidth<=920)switchPanel("excel");
+    }catch(err){status("excelStatus","파일을 읽지 못했습니다: "+err.message,"err")}
+  });
+  $("sheetSelect").addEventListener("change",e=>selectSheet(e.target.value));
+
+  function workbookContext(){
+    const context={active_sheet:currentSheet,sheets:[]};
+    workbook.SheetNames.forEach(name=>{
+      const ws=workbook.Sheets[name],info=rangeInfo(ws);
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false}).slice(0,12).map(r=>r.slice(0,18));
+      context.sheets.push({name,used_range:ws["!ref"]||null,row_count:info.rows,column_count:info.cols,sample_rows:rows});
+    });
+    return context;
+  }
+  function setFormula(sheet,address,formula){
+    const ws=workbook.Sheets[sheet];if(!ws)throw new Error(`시트를 찾을 수 없습니다: ${sheet}`);
+    address=String(address).toUpperCase();
+    if(!/^[A-Z]+\d+$/.test(address))throw new Error(`잘못된 셀 주소: ${address}`);
+    formula=String(formula||"").trim();if(formula.startsWith("="))formula=formula.slice(1);
+    ws[address]={...(ws[address]||{}),t:"n",f:formula};delete ws[address].v;updateRef(ws,address);
+  }
+  function setValue(sheet,address,value){
+    const ws=workbook.Sheets[sheet];if(!ws)throw new Error(`시트를 찾을 수 없습니다: ${sheet}`);
+    address=String(address).toUpperCase();if(!/^[A-Z]+\d+$/.test(address))throw new Error(`잘못된 셀 주소: ${address}`);
+    const n=Number(value);ws[address]=(!Number.isNaN(n)&&String(value).trim()!=="")?{t:"n",v:n}:{t:"s",v:String(value??"")};updateRef(ws,address);
+  }
+  function fillFormula(sheet,targetColumn,startRow,endRow,template){
+    const ws=workbook.Sheets[sheet];if(!ws)throw new Error(`시트를 찾을 수 없습니다: ${sheet}`);
+    targetColumn=String(targetColumn).toUpperCase();if(!/^[A-Z]+$/.test(targetColumn))throw new Error(`잘못된 열: ${targetColumn}`);
+    const info=rangeInfo(ws);startRow=Math.max(1,Number(startRow)||2);endRow=(endRow==="last"||endRow==null)?info.endRow:Number(endRow);
+    if(!Number.isInteger(endRow)||endRow<startRow)throw new Error("수식 적용 행 범위가 올바르지 않습니다.");
+    for(let r=startRow;r<=endRow;r++){
+      let f=String(template).replaceAll("{row}",String(r));setFormula(sheet,`${targetColumn}${r}`,f)
+    }
+    return endRow-startRow+1;
+  }
+  function insertBlankRows(sheet,startRow,endRow){
+    const ws=workbook.Sheets[sheet];if(!ws)throw new Error(`시트를 찾을 수 없습니다: ${sheet}`);
+    const info=rangeInfo(ws);startRow=Number(startRow);endRow=Math.min(Number(endRow),info.endRow);
+    if(!Number.isInteger(startRow)||!Number.isInteger(endRow)||startRow<1||endRow<=startRow)throw new Error("빈 행 범위가 올바르지 않습니다.");
+    const count=endRow-startRow,next={};
+    Object.keys(ws).forEach(key=>{
+      if(key.startsWith("!")){next[key]=ws[key];return}
+      const d=XLSX.utils.decode_cell(key),old=d.r+1;let nr=old;
+      if(old>=startRow&&old<=endRow)nr=startRow+(old-startRow)*2;else if(old>endRow)nr=old+count;
+      next[XLSX.utils.encode_cell({r:nr-1,c:d.c})]=ws[key]
+    });
+    if(ws["!ref"]){
+      const r=XLSX.utils.decode_range(ws["!ref"]);r.e.r+=count;next["!ref"]=XLSX.utils.encode_range(r)
+    }
+    workbook.Sheets[sheet]=next;return count;
+  }
+  function writeHeader(sheet,column,row,value){
+    setValue(sheet,`${String(column).toUpperCase()}${Number(row)||1}`,value)
+  }
+  function applyAction(a){
+    const sheet=a.sheet||currentSheet;
+    switch(a.type){
+      case "set_formula_cell": setFormula(sheet,a.cell,a.formula);return `수식 ${sheet}!${a.cell}`;
+      case "set_value_cell": setValue(sheet,a.cell,a.value);return `값 ${sheet}!${a.cell}`;
+      case "fill_formula": {
+        if(a.header)writeHeader(sheet,a.target_column,a.header_row||1,a.header);
+        const n=fillFormula(sheet,a.target_column,a.start_row||2,a.end_row??"last",a.formula_template);
+        return `${sheet}!${a.target_column}열 수식 ${n}개`;
+      }
+      case "summary_formula": {
+        const formula=`=${a.function_name}(${a.range})`;setFormula(sheet,a.target_cell,formula);
+        return `${sheet}!${a.target_cell} ${a.function_name}`;
+      }
+      case "insert_blank_rows_between": {
+        const n=insertBlankRows(sheet,a.start_row,a.end_row);return `${sheet} 빈 행 ${n}개`;
+      }
+      default: throw new Error(`지원하지 않는 작업 유형: ${a.type}`)
+    }
+  }
+  function planToHtml(plan){
+    const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+    let h=`<div class="bubble plan"><b>${esc(plan.summary||"작업 계획")}</b>${plan.note?`<br>${esc(plan.note)}`:""}</div>`;
+    (plan.actions||[]).forEach((a,i)=>{
+      let desc="";
+      if(a.type==="fill_formula")desc=`${a.sheet} 시트 ${a.target_column}열에 <span class="code">${esc(a.formula_template)}</span> 적용${a.header?` · 헤더: ${esc(a.header)}`:""}`;
+      else if(a.type==="summary_formula")desc=`${a.sheet}!${a.target_cell}에 <span class="code">=${esc(a.function_name)}(${esc(a.range)})</span>`;
+      else if(a.type==="set_formula_cell")desc=`${a.sheet}!${a.cell}에 <span class="code">${esc(a.formula)}</span>`;
+      else if(a.type==="set_value_cell")desc=`${a.sheet}!${a.cell}에 값 ${esc(a.value)}`;
+      else if(a.type==="insert_blank_rows_between")desc=`${a.sheet} ${a.start_row}~${a.end_row}행 사이에 빈 행 삽입`;
+      h+=`<div class="actionitem"><b>${i+1}. ${esc(a.type)}</b><br>${desc}</div>`
+    });
+    return h;
+  }
+  async function askAI(){
+    if(!workbook)return;
+    const prompt=$("prompt").value.trim();if(!prompt){status("aiStatus","원하는 작업을 입력해주세요.","warn");return}
+    $("askAI").disabled=true;status("aiStatus","AI가 Excel 구조와 요청을 분석하고 있습니다...");
+    pendingPlan=null;$("planBox").classList.remove("show");
+    try{
+      const res=await fetch("/.netlify/functions/ai",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({request:prompt,workbook:workbookContext()})
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(data.error||`서버 오류 (${res.status})`);
+      pendingPlan=data.plan;
+      if(!pendingPlan||!Array.isArray(pendingPlan.actions)||!pendingPlan.actions.length)throw new Error("AI가 실행 가능한 작업을 만들지 못했습니다.");
+      $("planBody").innerHTML=planToHtml(pendingPlan);$("planBox").classList.add("show");
+      status("aiStatus","작업 계획을 확인한 뒤 [계획 적용]을 눌러주세요.","ok");
+    }catch(err){status("aiStatus",err.message,"err")}
+    finally{$("askAI").disabled=false}
+  }
+  $("askAI").addEventListener("click",askAI);
+  document.querySelectorAll(".chip").forEach(x=>x.addEventListener("click",()=>{$("prompt").value=x.dataset.prompt;$("prompt").focus()}));
+  $("discardPlan").addEventListener("click",()=>{pendingPlan=null;$("planBox").classList.remove("show");status("aiStatus","작업 계획을 취소했습니다.")});
+  $("applyPlan").addEventListener("click",()=>{
+    if(!pendingPlan)return;
+    try{
+      const results=pendingPlan.actions.map(applyAction);render();
+      addHistory(`AI 작업 적용: ${pendingPlan.summary||results.join(", ")}`);
+      status("aiStatus",`적용 완료: ${results.join(" · ")}`,"ok");
+      pendingPlan=null;$("planBox").classList.remove("show");
+    }catch(err){status("aiStatus","적용 중 오류: "+err.message,"err")}
+  });
+  $("manualApply").addEventListener("click",()=>{
+    try{setFormula(currentSheet,$("manualCell").value,$("manualFormula").value);render();addHistory(`${currentSheet}!${$("manualCell").value.toUpperCase()} 수식 직접 적용`);status("aiStatus","수식을 적용했습니다.","ok")}
+    catch(err){status("aiStatus",err.message,"err")}
+  });
+
+  function download(){
+    if(!workbook)return;
+    const out=originalName.replace(/(\.xlsx|\.xls)$/i,"")+"_AI_edited.xlsx";
+    XLSX.writeFile(workbook,out,{bookType:"xlsx",cellStyles:true});addHistory(`다운로드: ${out}`);
+  }
+  $("downloadTop").addEventListener("click",download);$("downloadMobile").addEventListener("click",download);
+
+  function reset(){
+    workbook=null;currentSheet=null;pendingPlan=null;originalName="edited.xlsx";$("fileInput").value="";
+    setEnabled(false);$("sheetSelect").innerHTML="<option>시트 선택</option>";["mFile","mSheets","mRows","mCols"].forEach(id=>$(id).textContent="-");
+    $("uploadName").textContent="작업할 Excel 파일을 선택하세요";$("preview").hidden=true;$("emptyState").hidden=false;
+    $("planBox").classList.remove("show");historyItems.length=0;$("history").innerHTML="<li>아직 작업이 없습니다.</li>";status("excelStatus","");status("aiStatus","");
+  }
+  $("resetTop").addEventListener("click",reset);$("resetMobile").addEventListener("click",reset);
+
+  function switchPanel(name){
+    if(innerWidth>920)return;
+    $("excelPanel").classList.toggle("hidden",name!=="excel");$("assistantPanel").classList.toggle("hidden",name!=="assistant");
+    document.querySelectorAll(".mobile-nav button").forEach(b=>b.classList.toggle("active",b.dataset.panel===name))
+  }
+  document.querySelectorAll(".mobile-nav button").forEach(b=>b.addEventListener("click",()=>switchPanel(b.dataset.panel)));
+  addEventListener("resize",()=>{if(innerWidth>920){$("excelPanel").classList.remove("hidden");$("assistantPanel").classList.remove("hidden")}else{switchPanel(document.querySelector(".mobile-nav button.active")?.dataset.panel||"excel")}});
+  setEnabled(false);if(innerWidth<=920)switchPanel("excel");
+})();
+</script>
+</body>
+</html>
